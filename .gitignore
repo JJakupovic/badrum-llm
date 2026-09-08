@@ -1,0 +1,21 @@
+__pycache__/
+*.pyc
+.venv/
+
+# Generated data and training artefacts. Everything here is reproducible from
+# a seed, so it does not belong in the repository.
+data/out/
+runs/
+eval.json
+*.pt
+*.bin
+
+# The Node extractor for the live Medusa shop. It belongs to the product track,
+# not the course submission. Delete this line to include it.
+medusa-extract/
+
+# Editor and OS noise
+.DS_Store
+.idea/
+.vscode/
+*.swp

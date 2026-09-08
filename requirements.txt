@@ -1,0 +1,16 @@
+# Data generation needs NOTHING beyond the standard library. That is deliberate,
+# so `python -m data.generate` works on a bare machine with no install step.
+#
+# The packages below are for the training stages. On a RunPod PyTorch template,
+# torch is already installed and matched to the driver: do NOT reinstall it.
+
+# torch        # provided by the RunPod PyTorch image; do NOT reinstall
+numpy>=1.24
+tqdm>=4.66
+
+# Tokenizer work (Experiment 1: Swedish BPE vs GPT-2's tiktoken)
+tokenizers>=0.15
+tiktoken>=0.6
+
+# Optional, for logging training curves into the report
+# tensorboard>=2.16

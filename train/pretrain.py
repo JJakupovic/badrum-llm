@@ -116,6 +116,10 @@ def main(argv=None) -> int:
     ap.add_argument("--context-length", type=int, default=None)
     ap.add_argument("--dropout", type=float, default=None)
     ap.add_argument("--corpus", default="data/out/corpus_sv.jsonl")
+    ap.add_argument("--exclude-products", type=Path, default=None,
+                    help="holdout_products.json from data.instructions. Drops those "
+                         "products from pretraining too, so the instruction holdout "
+                         "is genuinely unseen. Changes which claim the report can make.")
     ap.add_argument("--tokenizer", default="bytes", help="bytes | gpt2")
     ap.add_argument("--name", default=None, help="run name (default: preset-tokenizer)")
     ap.add_argument("--out", type=Path, default=Path("runs"))
@@ -180,10 +184,19 @@ def main(argv=None) -> int:
     print(f"model       {cfg.summary()}"
           + (f"\n            overrides: {overrides}" if overrides else ""))
 
+    excluded = None
+    if args.exclude_products:
+        holdout = json.loads(args.exclude_products.read_text(encoding="utf-8"))
+        excluded = set(holdout["val_product_ids"])
+
     train_loader, val_loader, stats = make_dataloaders(
         args.corpus, tokenizer, cfg.context_length,
         batch_size=args.batch_size, seed=args.seed,
+        exclude_product_ids=excluded,
     )
+    if excluded:
+        print(f"excluded    {stats['excluded_products']} held-out products "
+              f"({stats['excluded_documents']} documents) from pretraining")
     print(f"data        {stats['train_tokens']:,} train tokens, "
           f"{stats['val_tokens']:,} val, {stats['train_windows']:,} windows"
           .replace(",", " "))

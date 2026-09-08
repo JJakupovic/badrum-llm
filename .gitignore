@@ -14,6 +14,10 @@ eval.json
 # not the course submission. Delete this line to include it.
 medusa-extract/
 
+# My own prep notes, not part of the submission.
+demo-walkthrough-notes.md
+DEMO.md
+
 # Editor and OS noise
 .DS_Store
 .idea/

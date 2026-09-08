@@ -106,9 +106,26 @@ def make_dataloaders(
     stride: int | None = None,
     seed: int = 0,
     num_workers: int = 0,
+    exclude_product_ids: set[str] | None = None,
 ):
-    """Returns (train_loader, val_loader, stats)."""
+    """
+    Returns (train_loader, val_loader, stats).
+
+    `exclude_product_ids` drops every document belonging to those products before
+    training. I use it to keep the instruction-tuning holdout out of pretraining
+    as well. Without it the held-out products have still been seen during
+    pretraining, and the claim I can make about generalisation is narrower.
+    """
     rows = load_corpus(corpus_path)
+    n_before = len(rows)
+    if exclude_product_ids:
+        rows = [r for r in rows if r.get("product_id") not in exclude_product_ids]
+        if len(rows) == n_before:
+            raise ValueError(
+                f"--exclude-products matched nothing in {corpus_path}. Either the "
+                "corpus rows carry no product_id, or the holdout file belongs to a "
+                "different catalogue. Regenerate both from the same seed."
+            )
     texts = [r["text"] for r in rows]
     train_docs, val_docs = split_documents(texts, val_fraction, seed)
 
@@ -131,6 +148,8 @@ def make_dataloaders(
 
     stats = {
         "documents": len(texts),
+        "excluded_documents": n_before - len(rows),
+        "excluded_products": len(exclude_product_ids or ()),
         "train_documents": len(train_docs),
         "val_documents": len(val_docs),
         "train_tokens": len(train_ids),

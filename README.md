@@ -23,6 +23,26 @@ in the report without standing up a webshop first.
 
 `FINDINGS.md` has the results and what I think they mean.
 
+## Use of AI assistance
+
+I used an AI assistant (Claude) while building this project. What that covered:
+
+- **Design discussion.** Talking through what to include and what to cut, how to
+  frame the two experiments, and whether a given measurement actually showed what
+  I thought it showed.
+- **Drafting code and documentation.** A large part of the code and of the
+  Markdown in this repository was drafted with the assistant and then reviewed,
+  run and corrected by me.
+- **Writing tests.** Several of those tests caught real problems in my own design.
+  The task that scored 100% for answering "Nej", described in `FINDINGS.md`, is
+  the clearest example.
+
+The decisions are mine. Dropping the Medusa integration for the course track,
+leaving the Swedish web-crawl mixing out of scope, choosing model scale and
+pretraining benefit as the two experiments, and every judgement in `FINDINGS.md`
+about what the numbers mean. I have run everything in this repository and can
+explain and defend any part of it.
+
 ## Status
 
 | Lab | Part | State |
@@ -32,9 +52,19 @@ in the report without standing up a webshop first.
 | 3 | Fine-tune | done: 840 instruction pairs, prompt-masked loss, scratch control |
 | 4 | Evaluate | done: task accuracy on 10 tasks, two baselines, no judge model |
 
-Experiment 1 is a model-scale sweep, which needs no new code. Experiment 2 is
-`--init` against `--scratch --like` in `train.finetune`: identical architecture,
-data, schedule and seed, differing only in whether the weights start pretrained.
+Experiment 1 is a model-scale sweep. Experiment 2 is `--init` against
+`--scratch --like` in `train.finetune`: identical architecture, data, schedule and
+seed, differing only in whether the weights start pretrained. Both run from one
+script:
+
+```bash
+bash run_experiments.sh                  # GPU if available
+bash run_experiments.sh --device cpu     # overnight on a laptop
+```
+
+It generates the data, runs every stage, and writes `RESULTS.md` with the tables.
+Each stage is skipped if its checkpoint already exists, so an interrupted run
+continues where it stopped. `RUNBOOK.md` has the details and the timings.
 
 The tokenizer-fertility comparison in `data/tokenizer.py` is future work. It would
 need a BPE trainer written from scratch and a full retrain of everything

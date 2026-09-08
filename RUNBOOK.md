@@ -166,7 +166,36 @@ all. Without it the claim is narrower: it generalises the instruction format to
 products it was never instruction-tuned on. Both are honest. The report has to
 say which one you ran.
 
-## Both experiments
+## Both experiments, one command
+
+```bash
+bash run_experiments.sh                      # GPU if available, 400 products, 700 steps
+bash run_experiments.sh --device cpu         # overnight on a laptop
+bash run_experiments.sh --sizes "debug tiny" # skip the slow one
+bash run_experiments.sh --exclude-holdout    # the stronger generalisation claim
+```
+
+This generates the data, runs Experiment 1 across the sizes, runs the Experiment 2
+control, evaluates everything, and writes `RESULTS.md`. Every stage is skipped if
+its checkpoint already exists, so an interrupted run continues rather than
+restarting. Delete `runs/<name>/` to force a stage to redo. The full log goes to
+`experiments.log`.
+
+On CPU, budget two to three hours for `debug` and `tiny`, and considerably longer
+if you include `small`. On a RunPod GPU the whole thing is minutes.
+
+To rebuild the tables without retraining anything:
+
+```bash
+python -m evals.collect
+```
+
+It reads `runs/*/config.json`, `runs/*/metrics.jsonl` and `runs/*/eval.json`, so
+`RESULTS.md` cannot disagree with the runs that produced it. I wrote it because
+copying numbers between a dozen JSON files by hand is how a transposed digit
+reaches a report.
+
+## The same thing stage by stage
 
 ```bash
 # Experiment 1: model scale

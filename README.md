@@ -23,6 +23,38 @@ in the report without standing up a webshop first.
 
 `FINDINGS.md` has the results and what I think they mean.
 
+## Why this project
+
+I am building a webshop for bathroom products in [Medusa](https://medusajs.com/),
+and I wanted the course project to run against it rather than against something
+invented for the occasion. That gave me a domain I already know, a catalogue with
+real structure, and an end goal I actually want: an assistant that can answer
+"vilka utföranden finns?" and then put the right variant in the cart.
+
+It also decided the data model. In Medusa a product owns variants, and variants
+own option values, so "which variants exist" is a query rather than something the
+model has to infer. Everything in `data/catalogue.py` mirrors that shape:
+products with option axes, variants carrying a price and an inventory count, and
+gaps in option coverage so some combinations do not exist. The Node extractor I
+wrote against the live Store API emits the same shape, so swapping the synthetic
+catalogue for the real one changes a loader and nothing else. That extractor
+belongs to the product track and is kept out of this repository, since it is not
+part of what the examination asks for.
+
+The project has two tracks and they need different things.
+
+**The course track** is this repository: a small GPT trained from scratch,
+instruction-tuned on the catalogue, evaluated. It is what the examination asks
+for.
+
+**The product track** is the assistant that will actually ship: a hosted
+instruction-tuned model with retrieval over the catalogue and tool calls into the
+Store API. The reason those cannot be the same thing is in `FINDINGS.md` under
+Lab 2. A model that writes fluent Swedish still cannot count its own list, so
+variant counts, prices and stock have to come from a query with the model
+choosing the arguments. Finding that out on a model I built myself is more
+convincing than reading it.
+
 ## Use of AI assistance
 
 I used an AI assistant (Claude) while building this project. What that covered:
@@ -72,9 +104,9 @@ downstream, which is more than the examination asks for.
 
 ## Why the data is synthetic
 
-The motivating use case is a chatbot for a bathroom webshop, so the obvious move
-is to pull a real catalogue from the shop's backend. I built a working Medusa
-extractor to do that and then didn't use it for the course.
+Given that the whole point was to build against my own shop, the obvious move is
+to pull the real catalogue from its backend. I wrote the extractor to do exactly
+that and then did not use it for the course track.
 
 A real shop adds a service to install, seed and keep running, and gives back data
 I have less control over. I can't ask a live catalogue for a clean distribution of

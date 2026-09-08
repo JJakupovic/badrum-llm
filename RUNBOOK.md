@@ -143,15 +143,47 @@ python -m evals.run --ckpt runs/ft-pretrained/ckpt_best.pt --baselines
 
 **Where to run it.** On CPU I measured 1081 tokens/second for the `tiny` preset,
 which is about 3.8 seconds per step, so 700 steps is roughly 45 minutes and the
-whole sequence including evaluation is two to three hours. That is an overnight
-job on a laptop and a few minutes on a GPU. You have RunPod credits, so:
+whole sequence including evaluation is two to three hours. On a GPU it is minutes.
 
-```bash
-bash runpod/setup.sh        # checks the GPU, warns if /workspace is not a volume
-```
+### On RunPod
 
-Attach a network volume before deploying the pod, or `/workspace` dies with the
-pod and takes the checkpoints with it. Stop the pod when the run finishes.
+1. Push whatever is committed locally, since the pod clones from GitHub.
+2. **Create a network volume first**, in the same region you will deploy in.
+   20 GB is ample. Without one, `/workspace` dies with the pod and takes every
+   checkpoint with it.
+3. Deploy a pod on that volume with a **PyTorch** template. An RTX A5000, 3090 or
+   L4 is plenty for models this size, at roughly $0.27 to $0.50 an hour. An A100
+   is a waste here.
+4. Open the pod's web terminal and run:
+
+   ```bash
+   cd /workspace
+   git clone https://github.com/JJakupovic/badrum-llm.git
+   cd badrum-llm
+   bash runpod/setup.sh
+   ```
+
+   `setup.sh` checks the GPU, warns if `/workspace` is not a real volume or the
+   repo is outside it, installs requirements without touching torch, generates
+   400 products, and runs three test files.
+
+5. Then the experiments:
+
+   ```bash
+   bash run_experiments.sh --exclude-holdout
+   ```
+
+6. Bring the results back and stop the pod:
+
+   ```bash
+   cat RESULTS.md
+   git add RESULTS.md && git commit -m "Add experiment results" && git push
+   ```
+
+Stop the pod the moment the run finishes. Billing is per second and an idle GPU
+costs what a busy one does. Community-cloud pods can be reclaimed mid-run; every
+stage checkpoints and a rerun skips finished stages, so rerunning the same
+command continues rather than restarting.
 
 **The one decision to make before this run.** Held-out products are still in the
 pretraining corpus unless you exclude them:

@@ -12,6 +12,14 @@ that I've labelled as such.
 The section I'd read first is "A pattern I noticed", near the end. It's the part
 I didn't expect when I started.
 
+Background in one paragraph: I am building a bathroom-products webshop in Medusa,
+and I wanted the course project to run against that rather than against a made-up
+domain. Medusa's data model puts variants and their option values directly under
+the product, so the catalogue here mirrors that shape and the questions I ask the
+model are the ones a customer would actually ask my shop. The report should say
+this early. It explains why the tasks look the way they do, and why the counting
+failure in Lab 2 matters commercially rather than only academically.
+
 ---
 
 ## Lab 1: the corpus

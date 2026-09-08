@@ -4,29 +4,29 @@ Notes for the report: what I built, what I measured, and what the measurements
 turned out to mean. Everything here is reproducible from a clean clone; the
 commands are in `README.md`.
 
-As of 8 September 2026 all four lab parts are built and tested. The two
-experiments are set up but I haven't run them at a scale worth reporting yet, so
-every number below is either a property of the data, a baseline, or a smoke run
-that I've labelled as such.
+As of 8 September 2026 all four lab parts are built and both experiments have
+run on a GPU at 400 products. The numbers below are from that run unless a line
+says otherwise.
 
-The section I'd read first is "A pattern I noticed", near the end. It's the part
-I didn't expect when I started.
+"What the experiments showed" is the result. "A pattern I noticed" is the part I
+didn't expect when I started.
 
 Background in one paragraph: I am building a bathroom-products webshop in Medusa,
 and I wanted the course project to run against that rather than against a made-up
 domain. Medusa's data model puts variants and their option values directly under
 the product, so the catalogue here mirrors that shape and the questions I ask the
-model are the ones a customer would actually ask my shop. The report should say
-this early. It explains why the tasks look the way they do, and why the counting
-failure in Lab 2 matters commercially rather than only academically.
+model are the ones a customer would actually ask my shop. That is also why the
+counting failure in Lab 2 matters commercially and not only academically.
 
 ---
 
 ## Lab 1: the corpus
 
-120 products, 548 variants (4.57 per product), 344 documents, roughly 29 700
-tokens. Generated from a seed, so it's deterministic. No network, no services,
-21 checks.
+400 products, 1945 variants, 982 documents, 329 723 training tokens and 32 628
+validation. Generated from a seed, so it's deterministic. No network, no
+services, 21 checks. I used the 120-product default while building and switched
+to 400 for the reported run, because 120 left only 6 to 16 validation pairs per
+task.
 
 I originally pulled the catalogue from a Medusa instance, and dropped that for
 the course track. A real shop adds a service to install, seed and keep running,
@@ -38,7 +38,8 @@ was already there as a test fixture, so I promoted it.
 
 My first pretraining run was 1.9M parameters with the byte tokenizer, about
 386k tokens, roughly 10 epochs, nine minutes on CPU. It reached a validation loss
-of 0.2289, which is a perplexity of 1.3.
+of 0.2289, which is a perplexity of 1.3. The reported run says the same thing at
+a larger scale: **1.46 at 10.8M parameters and 1.27 at 25.5M**.
 
 That number looked like a success for about a minute. A perplexity of 1.3 means
 there's almost no uncertainty left in the text: given a prefix, the next token is
@@ -103,8 +104,10 @@ the model choosing the arguments.
 
 ## Lab 3: instruction tuning
 
-840 pairs from the 120 products, 714 train and 126 validation, 18 products held
-out completely. Ten task types, 18 checks.
+2800 pairs from the 400 products, 2380 train and 420 validation, 60 products
+held out completely and also excluded from pretraining. Ten task types, 18
+checks. The per-task counts below are from the 120-product build; the reported
+run has roughly 42 validation pairs per task.
 
 | task | pairs | val | what it asks for |
 |---|---|---|---|
@@ -190,13 +193,12 @@ Both boolean tasks now sit near 58%. Two tests fail if either drifts back.
 
 ### Baseline floors
 
-126 pairs from 18 products, macro-averaged so that a task with 102 pairs doesn't
-outvote one with 48.
+420 pairs from 60 products, macro-averaged so that one task doesn't outvote
+another on pair count alone.
 
 | | majority | retrieval |
 |---|---|---|
-| macro average | 0.25 | 0.30 |
-| micro average | 0.23 | 0.27 |
+| macro average | 0.22 | 0.36 |
 | exact match | 0.00 | 0.01 |
 
 `majority` answers the most common gold value for the task every time.
@@ -220,6 +222,129 @@ answered without knowing which product was asked about.
 I want these numbers in front of me before I quote any model score. If the model
 reaches 0.75 on `category` it has done nothing. The same score on `price` would
 mean something.
+
+---
+
+## What the experiments showed
+
+Both ran on a RunPod GPU: 400 products, 700 steps, held-out products excluded
+from pretraining. Full tables in `RESULTS.md`.
+
+### The tasks split in two, and the model behaves completely differently on each
+
+Because the 60 held-out products were kept out of pretraining as well as
+fine-tuning, the model has never seen them in any form. That turned the
+evaluation into a cleaner test than I designed it to be, because some of my
+tasks can be answered from the question alone and some cannot.
+
+**Derivable from the question.** The SKU is a deterministic function of the
+product noun, the model name and the option values, all of which appear in the
+question. `DUS-ORS-9M-KRO` is "Duschvägg Orsa" and "900 mm / Krom" chopped up by
+a fixed rule. Category follows from the noun.
+
+| task | tiny | small | majority | retrieval |
+|---|---|---|---|---|
+| category | 1.00 | 1.00 | 0.15 | 0.87 |
+| add_to_cart | 0.92 | 1.00 | 0.00 | 0.00 |
+| sku | 0.86 | 0.96 | 0.00 | 0.00 |
+
+**Requires knowing the specific product**, which the model never saw:
+
+| task | tiny | small | majority | retrieval |
+|---|---|---|---|---|
+| variant_list | 0.71 | 0.78 | 0.56 | 0.66 |
+| axis_values | 0.69 | 0.78 | 0.24 | 0.67 |
+| stock | 0.65 | 0.57 | 0.37 | 0.45 |
+| option_check | 0.64 | 0.60 | 0.53 | **0.72** |
+| variant_count | 0.30 | 0.20 | **0.34** | 0.18 |
+| price | 0.00 | 0.00 | 0.00 | 0.02 |
+| cheapest | 0.00 | 0.00 | 0.00 | 0.02 |
+
+The model clearly beats both floors on three tasks, and they are exactly the
+three where the answer is computable from the question. On the fact-dependent
+tasks it sits at or below a lexical nearest-neighbour lookup: worse than
+retrieval on `option_check`, worse than a constant answer on `variant_count`.
+
+This is the Track B argument with numbers rather than an anecdote. The model
+learned the form of the answers and the deterministic rules. It learned nothing
+about facts it could not derive, and under this split it could not have. Prices,
+stock and variant counts have to come from a query.
+
+### Experiment 2: pretraining bought one specific capability
+
+Macro 0.58 from the pretrained checkpoint against 0.34 from random init, same
+architecture, same data, same schedule, same seed. The control also falls below
+the retrieval floor of 0.36, so without pretraining the fine-tuned model does not
+beat a lookup.
+
+The interesting part is where the gap sits. On the fact-dependent tasks the two
+are roughly level. The difference is almost entirely:
+
+| task | pretrained | scratch |
+|---|---|---|
+| sku | 0.86 | **0.00** |
+| add_to_cart | 0.92 | **0.00** |
+
+So pretraining did not broadly improve the model. It made the compositional
+character-level rule learnable at all. Fine-tuning alone on 2380 pairs never
+found it.
+
+### Experiment 1: task accuracy saturates before perplexity does
+
+| | params | pretrain ppl | answer ppl | macro | exact match |
+|---|---|---|---|---|---|
+| debug | 0.1M | 9.99 | 6.63 | 0.00 | 0.00 |
+| tiny | 10.8M | 1.46 | 1.05 | 0.58 | 0.46 |
+| small | 25.5M | 1.27 | 1.05 | 0.59 | 0.47 |
+
+From 0.1M to 10.8M everything changes. From 10.8M to 25.5M perplexity keeps
+improving and task accuracy does not, and the per-task differences run in both
+directions with none of them clearing noise. Perplexity is still measuring
+something real about the language modelling; it has just stopped predicting
+whether the model can do the task.
+
+This is what I set out to ask in Experiment 1, and the answer is no.
+
+## What these numbers do not say
+
+**The macro average is a bad summary here.** At 0.59 it largely measures how many
+of my ten tasks happen to be rule-derivable. Read as "the model is 59%
+competent" it is misleading, and the table is mine, so that is my problem to fix.
+The per-task split is the result.
+
+**`price` and `cheapest` at 0.00 are not failures.** The information is absent by
+construction under this split. Those two are unknowable, not wrong.
+
+**`stock` at 0.65 is probably not skill.** The majority baseline scores 0.37,
+which means validation is skewed the other way, so answering validation's
+majority class alone gets about 0.63. The model is at 0.65.
+
+**About 42 validation pairs per task.** Anything under roughly 15 points is
+noise, which covers the whole of small against tiny.
+
+---
+
+## Things I'm not confident about
+
+**The corpus is entirely machine-generated.** The linguistic variety is bounded
+by my template file, not by the number of products. Generating 10 000 products
+wouldn't give me 10 000 products' worth of variety, and mixing in real Swedish is
+the obvious next step rather than scaling the generator.
+
+**Held-out products were excluded from pretraining as well as fine-tuning**, so
+the model never saw them in any form. That is the stronger of the two setups and
+it is the one I ran. It also means the fact-dependent tasks are unanswerable by
+construction, which is what makes the split in the results section so clean, and
+it means these numbers say nothing about how the model would do on products it
+had read about but not been tuned on. That would be a separate run.
+
+**Forty-two validation pairs per task is better than the 6 to 16 I had at 120
+products, and still not many.** One answer moves a task by more than two points.
+I would not defend any single-task comparison of small against tiny.
+
+**Greedy decoding throughout.** It makes the numbers reproducible. It also means
+I have not measured how much of the gap between models survives sampling, which
+lecture 6 suggests could be substantial.
 
 ---
 
@@ -249,66 +374,3 @@ it since. A test that can't fail tells me nothing, and I'd rather find that out
 deliberately than discover it in the report.
 
 ---
-
-## Things I'm not confident about
-
-**The held-out set is too small for per-task claims.** 126 pairs across ten tasks
-gives per-task *n* between 6 and 16, so one answer moves the smallest task by 17
-percentage points. I can already see it: the stock question's majority floor reads
-0.73 on validation even though the corrected global balance is 58%, purely because
-*n* is 15 there. Before the run I report I should raise the product count or the
-validation fraction. Generation is instant, so this costs nothing. The aggregate
-numbers are fine as they are.
-
-**Held-out products are still in the pretraining corpus** unless I pretrain with
-the exclusion flag. Without it, the claim I can honestly make is that the model
-generalises the instruction format to products it was never instruction-tuned on,
-which is smaller than generalising to unseen products. The held-out ids are
-written to disk so this is a one-flag decision, and the report has to say which
-way I ran it.
-
-**Every word of the corpus is machine-generated.** The linguistic variety is
-bounded by my template file, not by the number of products. Generating 10 000
-products wouldn't give me 10 000 products' worth of variety.
-
----
-
-## What I haven't run yet
-
-Both experiments are built and neither has been run at a reportable scale.
-
-**Experiment 1, model scale.** Three sizes against validation loss and task
-accuracy. Config sweeps, no new code. What I want to know is whether task accuracy
-follows perplexity at all on a corpus this templated, or whether it flattens out
-while perplexity keeps falling.
-
-**Experiment 2, does pretraining help?** Identical architecture, data, schedule
-and seed, with the only difference being whether the weights start pretrained. I
-think this is genuinely open. On a corpus with a perplexity of 1.3 it isn't
-obvious that pretraining carries anything the instruction set doesn't already
-contain.
-
-A smoke run at the smallest preset (0.1M parameters, nine seconds of training
-each) gave answer-token perplexity of 38.7 pretrained against 109.8 from scratch.
-That's a plumbing check rather than a result. At that scale the model's actual
-output is the string `"ar"`. But the comparison does discriminate, so the harness
-works.
-
----
-
-## How I'd structure the report
-
-1. The system: data pipeline, model, instruction tuning, evaluation. One page.
-2. The corpus is close to memorisable. Perplexity 1.3, and what it says about
-   synthetic data. (LE3)
-3. The model can't count. Five versus four, and why counts have to come from a
-   query. (LE5, LE6)
-4. Experiment 1: does task accuracy follow perplexity? (LE4)
-5. Experiment 2: does pretraining help? (LE5)
-6. Measuring a small model honestly. The six bugs, the baselines, and what the
-   retrieval floor says about the tasks. (LE7)
-7. Limitations, in full.
-
-Section 6 is the one I'd protect if the report runs long. Sections 1 to 5 are
-things a reader could get from the course material. Section 6 is the part where I
-have something of my own to say.

@@ -173,12 +173,29 @@ whole sequence including evaluation is two to three hours. On a GPU it is minute
    bash run_experiments.sh --exclude-holdout
    ```
 
-6. Bring the results back and stop the pod:
+6. Bring the results back, then stop the pod.
+
+   **Do not put a GitHub credential on the pod.** Cloning a public repository
+   needs no authentication at all, and a community-cloud pod is someone else's
+   hardware. The only things worth bringing back are `RESULTS.md` and the
+   `metrics.jsonl` files, all of them small text.
 
    ```bash
-   cat RESULTS.md
+   runpodctl send RESULTS.md          # prints a one-time code
+   ```
+
+   Then on your own machine, `runpodctl receive <code>`. Or simply `cat
+   RESULTS.md` in the web terminal and copy it. Commit it from your laptop, where
+   your credentials already work:
+
+   ```bash
    git add RESULTS.md && git commit -m "Add experiment results" && git push
    ```
+
+   If git ever prompts for a password against GitHub, something is wrong rather
+   than missing: GitHub stopped accepting account passwords over git in 2021, and
+   a passkey only authenticates the website. Cloning this repository anonymously
+   works, so a prompt means either a typo in the URL or an attempted push.
 
 Stop the pod the moment the run finishes. Billing is per second and an idle GPU
 costs what a busy one does. Community-cloud pods can be reclaimed mid-run; every
